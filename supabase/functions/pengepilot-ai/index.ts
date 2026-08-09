@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const ORIGIN = "https://5kzfdv7wvj-bot.github.io";
+const ORIGIN = "https://elia3161.github.io";
 const MODEL = Deno.env.get("OPENAI_MODEL") || "gpt-5-mini";
 const ACTION_TYPES = [
   "create_debt","update_debt","add_debt_payment","set_budget","upsert_goal",
