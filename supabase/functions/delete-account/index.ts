@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const allowedOrigins = new Set([
-  "https://5kzfdv7wvj-bot.github.io",
+  "https://elia3161.github.io",
   "https://localhost",
   "capacitor://localhost",
   "http://localhost"
@@ -10,7 +10,7 @@ const allowedOrigins = new Set([
 function cors(req: Request) {
   const origin = req.headers.get("origin") || "";
   return {
-    "Access-Control-Allow-Origin": allowedOrigins.has(origin) ? origin : "https://5kzfdv7wvj-bot.github.io",
+    "Access-Control-Allow-Origin": allowedOrigins.has(origin) ? origin : "https://elia3161.github.io",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Vary": "Origin"

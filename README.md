@@ -34,7 +34,7 @@ Deployment køres automatisk fra `main` via `.github/workflows/pages.yml`.
 
 Live prototype:
 
-`https://5kzfdv7wvj-bot.github.io/pengepilot/`
+`https://elia3161.github.io/pengepilot/`
 
 ## Næste produkttrin
 
