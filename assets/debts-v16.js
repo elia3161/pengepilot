@@ -80,7 +80,8 @@
     event.preventDefault(); try {
       const amount = Number(document.querySelector('#p16pa').value);
       if (!Number.isFinite(amount) || amount <= 0) throw new Error('Indtast et positivt afdrag.');
-      if (amount > Number(left) + .01) throw new Error(`Afdraget er større end den registrerede restgæld på ${fmt(left)}.`);
+      const maximum = Math.max(0, Math.round(Number(left) * 100) / 100);
+      if (amount > maximum) throw new Error(`Afdraget er større end den registrerede restgæld på ${fmt(maximum)}.`);
       const r = await sb.from('debt_payments').insert({ user_id:currentUser.id, debt_id:debtId, amount, payment_date:document.querySelector('#p16pd').value, source:'manual', note:document.querySelector('#p16pn').value.trim() || null });
       if (r.error) throw r.error; document.querySelector('#modal').innerHTML=''; toast('Afdrag registreret'); render();
     } catch (error) { alert(P.err(error)); }
