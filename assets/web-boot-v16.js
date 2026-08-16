@@ -16,6 +16,7 @@
   };
   const original = {};
   let installed = false;
+  const reveal = () => window.__PENGEPILOT_REVEAL__?.();
   const activeTab = group => { const raw = location.hash.replace(/^#/, ''); return defs[group].tabs.some(([id]) => id === raw) ? raw : defs[group].def; };
   const tabs = group => `<div class="pp16tabs" role="tablist" aria-label="${group === 'save' ? 'Spar penge' : 'Forbrug'}">${defs[group].tabs.map(([id,label]) => `<button type="button" class="pp16tab ${activeTab(group) === id ? 'on' : ''}" onclick="pp16Tab('${group}','${id}')">${esc(label)}</button>`).join('')}</div>`;
   const clean = html => String(html || '').replace(/<div id="modal"><\/div>/g, '');
@@ -67,8 +68,19 @@
     addEventListener('online', () => typeof toast === 'function' && toast('Forbindelsen er tilbage.'));
     addEventListener('hashchange', () => ['transactions','savings'].includes(page) && render());
     if (typeof currentUser !== 'undefined' && currentUser) { shell(currentUser); await render(); }
+    reveal();
     return true;
   }
 
-  let tries = 0; const timer = setInterval(async () => { tries++; try { if (await install() || tries > 180) clearInterval(timer); } catch (error) { console.error('PengePilot v16 boot', error); clearInterval(timer); } }, 30);
+  let tries = 0; const timer = setInterval(async () => {
+    tries++;
+    try {
+      if (await install()) clearInterval(timer);
+      else if (tries > 180) { clearInterval(timer); reveal(); }
+    } catch (error) {
+      console.error('PengePilot v16 boot', error);
+      clearInterval(timer);
+      reveal();
+    }
+  }, 30);
 })();
