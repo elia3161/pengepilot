@@ -226,6 +226,9 @@ Ved rene spørgsmål om forbrug eller besparelser: mode=answer, actions=[], og s
 function finitePositive(v,label){const n=Number(v);if(!Number.isFinite(n)||n<=0)throw new Error(`${label} skal være større end 0.`);return Math.round(n*100)/100;}
 function validDate(v,fallback=today()){const s=String(v||fallback);if(!/^\d{4}-\d{2}-\d{2}$/.test(s))throw new Error('Ugyldig dato.');return s;}
 async function rows(sb,table,select='*'){const r=await sb.from(table).select(select);if(r.error)throw r.error;return r.data||[];}
+const GENERIC_DEBT_MATCHES=new Set(['mobilepay','mobile pay','overforsel','betaling']);
+function validateDebtMatch(value){const raw=String(value||'').trim(),normalized=norm(raw);if(normalized.length<3)throw new Error('Matchtekst skal være mindst 3 tegn.');if(GENERIC_DEBT_MATCHES.has(normalized))throw new Error('Matchteksten er for generel. Brug personens navn eller en anden entydig tekst.');return raw;}
+async function remainingDebtAmount(sb,debt){const r=await sb.from('debt_payments').select('amount').eq('debt_id',debt.id);if(r.error)throw r.error;const paid=(r.data||[]).reduce((sum,row)=>sum+Number(row.amount||0),0);return Math.max(0,Math.round((Number(debt.original_amount||0)-paid)*100)/100);}
 async function resolveByIdOrName(sb,table,a,nameField='name'){
   if(a.entity_id){const r=await sb.from(table).select('*').eq('id',a.entity_id).maybeSingle();if(r.error)throw r.error;if(r.data)return r.data;}
   if(a.name){const all=await rows(sb,table);const hit=all.filter(x=>norm(x[nameField])===norm(a.name));if(hit.length===1)return hit[0];}
@@ -237,21 +240,24 @@ async function matchingTransactionIds(sb,pattern){const all=await rows(sb,'trans
 async function executeAction(sb,userId,a){
   if(!ACTION_TYPES.includes(a.type))throw new Error(`Handling ${a.type} er ikke tilladt.`);
   if(a.type==='create_debt'){
-    const amount=finitePositive(a.amount,'Gældsbeløb'),name=String(a.name||'').trim(),matchText=String(a.match_text||name).trim();
-    if(!name||matchText.length<3)throw new Error('Gæld kræver person og mindst 3 tegn som matchtekst.');
+    const amount=finitePositive(a.amount,'Gældsbeløb'),name=String(a.name||'').trim();
+    if(!name)throw new Error('Gæld kræver en person.');
+    const matchText=validateDebtMatch(a.match_text||name);
     const r=await sb.from('debts').insert({user_id:userId,person_name:name,original_amount:amount,match_text:matchText,note:a.note||null,status:'active'}).select('id').single();if(r.error)throw r.error;
     const sync=await sb.rpc('sync_debt_payments',{p_debt_id:r.data.id});if(sync.error)throw sync.error;
     return{type:a.type,summary:`Gæld til ${name} på ${amount.toFixed(2)} kr. oprettet. ${Number(sync.data||0)} eksisterende bankafdrag matchet.`};
   }
   if(a.type==='update_debt'){
     const d=await resolveByIdOrName(sb,'debts',a,'person_name'),p={};
-    if(a.name)p.person_name=String(a.name).trim();if(a.amount!=null)p.original_amount=finitePositive(a.amount,'Gældsbeløb');if(a.match_text)p.match_text=String(a.match_text).trim();if(a.note!=null)p.note=String(a.note)||null;if(a.status&&['active','cancelled'].includes(a.status))p.status=a.status;
-    if(p.match_text&&p.match_text.length<3)throw new Error('Matchtekst skal være mindst 3 tegn.');
+    if(a.name)p.person_name=String(a.name).trim();if(a.amount!=null)p.original_amount=finitePositive(a.amount,'Gældsbeløb');if(a.match_text!=null)p.match_text=validateDebtMatch(a.match_text);if(a.note!=null)p.note=String(a.note)||null;if(a.status&&['active','cancelled'].includes(a.status))p.status=a.status;
     const r=await sb.from('debts').update(p).eq('id',d.id);if(r.error)throw r.error;const sync=await sb.rpc('sync_debt_payments',{p_debt_id:d.id});if(sync.error&&p.status!=='cancelled')throw sync.error;
     return{type:a.type,summary:`Gæld til ${p.person_name||d.person_name} opdateret.`};
   }
   if(a.type==='add_debt_payment'){
     const d=await resolveByIdOrName(sb,'debts',a,'person_name'),amount=finitePositive(a.amount,'Afdrag');
+    if(d.status!=='active')throw new Error('Afdrag kan kun registreres på aktiv gæld.');
+    const remaining=await remainingDebtAmount(sb,d);
+    if(amount>remaining)throw new Error(`Afdraget er større end den registrerede restgæld på ${remaining.toFixed(2)} kr.`);
     const r=await sb.from('debt_payments').insert({user_id:userId,debt_id:d.id,amount,payment_date:validDate(a.date),source:'manual',note:a.note||'Registreret via PengePilot AI'});if(r.error)throw r.error;
     return{type:a.type,summary:`Afdrag på ${amount.toFixed(2)} kr. registreret på gælden til ${d.person_name}.`};
   }

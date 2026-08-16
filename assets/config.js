@@ -9,6 +9,24 @@ window.PENGEPILOT_CONFIG = {
   if (window.__PENGEPILOT_STABLE_LOADER__) return;
   window.__PENGEPILOT_STABLE_LOADER__ = true;
 
+  const appPages = new Set([
+    'index.html','transactions.html','import.html','savings.html','settings.html',
+    'accounts.html','subscriptions.html','bills.html','goals.html','budget.html',
+    'forecast.html','health.html','reports.html','chat.html'
+  ]);
+  const pageName = location.pathname.split('/').pop() || 'index.html';
+  const root = document.documentElement;
+  const reveal = () => {
+    root.classList.remove('pp16-loading');
+    root.removeAttribute('aria-busy');
+  };
+  if (appPages.has(pageName)) {
+    root.classList.add('pp16-loading');
+    root.setAttribute('aria-busy', 'true');
+    window.__PENGEPILOT_REVEAL__ = reveal;
+    setTimeout(reveal, 10000);
+  }
+
   for (const href of ['assets/mobile-v14.css?v=14','assets/product-v16.css?v=16']) {
     const css = document.createElement('link');
     css.rel = 'stylesheet';
