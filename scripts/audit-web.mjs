@@ -7,7 +7,8 @@ const root = process.cwd();
 const fail = [];
 const requiredPages = [
   'index.html','transactions.html','import.html','savings.html','settings.html',
-  'login.html','signup.html','forgot-password.html','reset-password.html','auth-callback.html'
+  'login.html','signup.html','forgot-password.html','reset-password.html','auth-callback.html',
+  'privacy.html','delete-account.html'
 ];
 for (const file of requiredPages) if (!fs.existsSync(path.join(root, file))) fail.push(`Mangler side: ${file}`);
 
@@ -49,6 +50,7 @@ if (fs.existsSync(configPath)) {
     'web-dashboard-v16.js','web-economy-v16.js','web-plan-v16.js','web-savings-v16.js','debts-v16.js','web-settings-v16.js','web-boot-v16.js','ai-action-center-v16.js'
   ];
   for (const file of required) if (!config.includes(file)) fail.push(`config.js loader mangler ${file}`);
+  for (const token of ['pp16-loading','__PENGEPILOT_REVEAL__']) if (!config.includes(token)) fail.push(`config.js mangler stabil v16-opstart: ${token}`);
   const retired = [
     'polish-core-v7.js','polish-finance-v7.js','polish-overview-v7.js','polish-local-v7.js','simplify-v10.js','ai-runtime-v8.js','store-runtime-v12.js',
     'web-budget-v13.js','web-fixed-v13.js','web-savings-v13.js','web-dashboard-v13.js','web-settings-v13.js','web-economy-v14.js','web-dashboard-v14.js',
@@ -60,6 +62,7 @@ if (fs.existsSync(configPath)) {
 const boot = fs.existsSync(path.join(root,'assets/web-boot-v16.js')) ? fs.readFileSync(path.join(root,'assets/web-boot-v16.js'),'utf8') : '';
 for (const label of ['Overblik','Forbrug','Spar penge','Indstillinger','Forslag','Faste udgifter','Budget & mål','Gæld']) if (!boot.includes(label)) fail.push(`v16-navigation mangler ${label}`);
 for (const retiredLabel of ["'Plan'","'Indsigter'"]) if (boot.includes(retiredLabel)) fail.push(`v16-navigation indeholder udfaset hovedpunkt ${retiredLabel}`);
+if (!boot.includes('__PENGEPILOT_REVEAL__')) fail.push('v16-boot frigiver ikke den stabile opstartsskærm.');
 
 const economy = fs.existsSync(path.join(root,'assets/web-economy-v16.js')) ? fs.readFileSync(path.join(root,'assets/web-economy-v16.js'),'utf8') : '';
 for (const token of ['pp16TxMonth','pp16ReviewOnly','Importér bankfil','Ret saldo']) if (!economy.includes(token)) fail.push(`Forbrug v16 mangler ${token}`);
@@ -79,13 +82,17 @@ for (const token of ['agent_plan','agent_execute','confirmed:true','Udfør','Ret
 const features = path.join(root,'assets/features-v2.js');
 if (fs.existsSync(features)) {
   const content = fs.readFileSync(features,'utf8');
-  for (const token of ['settingsV2','changePasswordV2','registerPasskeyV2','deletePasskeyV2']) if (!content.includes(token)) fail.push(`Sikkerhedsindstillinger mangler ${token}`);
+  for (const token of ['settingsV2','changePasswordV2','registerPasskeyV2','deletePasskeyV2','privacy.html','delete-account.html']) if (!content.includes(token)) fail.push(`Sikkerhedsindstillinger mangler ${token}`);
 }
+
+const appCss = fs.existsSync(path.join(root,'assets/app.css')) ? fs.readFileSync(path.join(root,'assets/app.css'),'utf8') : '';
+if (!appCss.includes('html.pp16-loading')) fail.push('app.css mangler stabil v16-opstartsskærm.');
 
 const edgePath = path.join(root, 'supabase/functions/pengepilot-ai/index.ts');
 if (fs.existsSync(edgePath)) {
   const content = fs.readFileSync(edgePath, 'utf8');
   for (const token of ['agent_plan','agent_execute','create_debt','set_budget','set_balance_anchor']) if (!content.includes(token)) fail.push(`Edge Function mangler ${token}`);
+  for (const token of ['validateDebtMatch','remainingDebtAmount','Matchteksten er for generel','Afdraget er større end den registrerede restgæld']) if (!content.includes(token)) fail.push(`AI-gældsvalidering mangler ${token}`);
   if (/service[_-]?role/i.test(content)) fail.push('AI Edge Function må ikke bruge service-role-nøgle.');
   const temp = path.join(os.tmpdir(), `pengepilot-edge-${process.pid}.mjs`);
   fs.writeFileSync(temp, content);
